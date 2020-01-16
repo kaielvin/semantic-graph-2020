@@ -208,6 +208,8 @@ class ClaimClass
 };
 const Claim = new ClaimClass();
 Claim.isString = value=> value instanceof Object && value.s;
+Claim.isBoolean = value=> value instanceof Object && value.b;
+Claim.isNumber = value=> value instanceof Object && value.n;
 Claim.isNode = value=> value instanceof Node;
 var keyPair = nacl.sign.keyPair();
 const _Kai =  makeByTitle("Kai Elvin");
@@ -237,9 +239,8 @@ function createObject(typeTos={})
   {
     var addOneTo = to=>
     {
-      to = Claim.isNode(to) ? to
-         : Claim.isString(to) ? to
-         : makeByTitle(to);
+      to = _.isString(to) ? makeByTitle(to)
+         : to;
       Claim.make( node, makeByTitle(typeTitle), to );
     }
     var to = typeTos[typeTitle];
@@ -254,10 +255,30 @@ createObject(
 {
   title:{s:"title"},
   instanceOf:"claimType",
+  typeFrom:"object",
+  typeTo:"string",
   inCategory:"coreObjects",
 });
 
 
+createObject(
+{
+  title:{s:"primitive"},
+  instanceOf:"instanciable",
+  inCategory:"coreObjects",
+});
+createObject(
+{
+  title:{s:"string"},
+  instanceOf:"primitive",
+  inCategory:"coreObjects",
+});
+createObject(
+{
+  title:{s:"boolean"},
+  instanceOf:"primitive",
+  inCategory:"coreObjects",
+});
 createObject(
 {
   title:{s:"object"},
@@ -276,29 +297,38 @@ createObject(
       instanciables.push(_object);
       console.log(instanciables);
       var fromTypes = _.flatten(instanciables.map(instanciable=>instanciable.toType_froms("typeFrom")));
+      var __toTypes = _.flatten(instanciables.map(instanciable=>instanciable.toType_froms("typeTo")));
+      // console.log("fromTypes",fromTypes,"__toTypes",__toTypes);
+      var listValues = (types,ftT=true)=>
+        '<ul>'
+            +types.map(type=>
+            {
+              var accessor = ftT ? "fromType_tos" : "toType_froms";
+              var values = node[accessor](type);
+              console.log("values",values);
+              var valuesHtml = values.length == 0
+                ? "<i>undefined</i>"
+                : values.map((value,v)=>
+                  Claim.isBoolean(value)
+                  ? (value.b ? "true" : "false")
+                  : Claim.isString(value)
+                  ? value.s.includes('\n')
+                    ? '<br/><textarea style="width:50em;height:5em">'+_.escape(value.s)+'</textarea>'
+                    : (v>0?'<br/>':'')+'<input style="width:50em" value="'+_.escape(value.s)+'"/>'
+                  : (v>0?', ':'')+value.executeJsMethod("htmlLink")
+                )
+                .join("");
+
+              return '<li>'
+                +type.executeJsMethod("htmlLink")
+                +(ftT?" > ":" < ")
+                +valuesHtml
+              +'</li>'
+            }).join('')
+          +'</ul>';
       return '<h2>Attributes</h2>'
-        +'<ul>'
-          +fromTypes.map(type=>
-          {
-            var values = node.fromType_tos(type);
-            var isStrings = values.some(Claim.isString);
-            console.log("values",values);
-            // var valuesHtml = values.map(value=>
-            //     Claim.isString(value)
-            //     ? '<textarea>'+value+'</textarea>'
-            //     : value.executeJsMethod("htmlLink")
-            //   )
-            //   .join(isStrings?"<br>":", ");
-
-            var valuesHtml = "";
-
-            return '<li>'
-              +type.executeJsMethod("htmlLink")
-              +" > "
-              +valuesHtml
-            +'</li>'
-          }).join('')
-        +'</ul>';
+        +listValues(fromTypes,true)
+        +listValues(__toTypes,false);
     })},
   ],
 });
@@ -328,6 +358,7 @@ createObject(
 {
   title:{s:"instanceOf"},
   instanceOf:"claimType",
+  typeFrom:"object",
   typeTo:"instanciable",
   inCategory:"coreObjects",
 });
@@ -336,6 +367,8 @@ createObject(
   title:{s:"htmlViewElement"},
   instanceOf:"claimType",
   typeFrom:"instanciable",
+  typeTo:"string",
+  multipleValues:{b:true},
   inCategory:"coreObjects",
 });
 createObject(
@@ -343,6 +376,8 @@ createObject(
   title:{s:"htmlLink"},
   instanceOf:"claimType",
   typeFrom:"instanciable",
+  typeTo:"string",
+  multipleValues:{b:true},
   inCategory:"coreObjects",
 });
 
@@ -369,6 +404,14 @@ createObject(
   typeTo:"instanciable",
   inCategory:"coreObjects",
 });
+createObject(
+{
+  title:{s:"multipleValues"},
+  instanceOf:"claimType",
+  typeFrom:"claimType",
+  typeTo:"boolean",
+  inCategory:"coreObjects",
+});
 
 
 createObject(
@@ -393,6 +436,7 @@ createObject(
 {
   title:{s:"inCategory"},
   instanceOf:"claimType",
+  typeFrom:"object",
   typeTo:"objectCategory",
   inCategory:"coreObjects",
 });
@@ -408,6 +452,8 @@ createObject(
 {
   title:{s:"publicKey"},
   instanceOf:"claimType",
+  typeFrom:"person",
+  typeTo:"string",
   inCategory:"coreObjects",
 });
 
@@ -416,7 +462,7 @@ createObject(
 {
   title:{s:"Kai Elvin"},
   instanceOf:"person",
-  publicKey:toHexString(keyPair.publicKey),
+  publicKey:{s:toHexString(keyPair.publicKey)},
 });
 
 
