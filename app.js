@@ -313,8 +313,8 @@ createObject(
                   ? (value.b ? "true" : "false")
                   : Claim.isString(value)
                   ? value.s.includes('\n')
-                    ? '<br/><textarea style="width:50em;height:5em">'+_.escape(value.s)+'</textarea>'
-                    : (v>0?'<br/>':'')+'<input style="width:50em" value="'+_.escape(value.s)+'"/>'
+                    ? '<br/><textarea>'+_.escape(value.s)+'</textarea>'
+                    : (v>0?'<br/>':'')+'<input value="'+_.escape(value.s)+'"/>'
                   : (v>0?', ':'')+value.executeJsMethod("htmlLink")
                 )
                 .join("");
@@ -533,14 +533,89 @@ app.get('/:id', (req, res) =>
 {
   var node = Node.get(req.params.id) || getByTitle(req.params.id);
   if(!node) res.status(404).send("404: unknown object");
-  var html = "<h1>"+(node.fromType_toStr(_title)||node.hex)+"</h1>";
+  var title = node.fromType_toStr(_title)||node.hex;
+  var html = "<h1>"+title+"</h1>";
 
   var instanciable = node.fromType_to(_instanceOf);
   if(instanciable) html+= '<p>Instance of: '+instanciable.executeJsMethod("htmlLink")+'</p>';
 
   html+= node.executeJsMethods("htmlViewElement").join("");
 
-  res.send(html);
+  res.send(`<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="icon" href="https://kaielvin.org/icon/32.png" sizes="32x32">
+    <link rel="icon" href="https://kaielvin.org/icon/57.png" sizes="57x57">
+    <link rel="icon" href="https://kaielvin.org/icon/76.png" sizes="76x76">
+    <link rel="icon" href="https://kaielvin.org/icon/76.png" sizes="96x96">
+    <link rel="icon" href="https://kaielvin.org/icon/128.png" sizes="128x128">
+    <link rel="icon" href="https://kaielvin.org/icon/192.png" sizes="192x192">
+    <link rel="icon" href="https://kaielvin.org/icon/228.png" sizes="228x228">
+    <link rel="shortcut icon" sizes="196x196" href="https://kaielvin.org/icon/196.png">
+    <link rel="apple-touch-icon" href="https://kaielvin.org/icon/120.png" sizes="120x120">
+    <link rel="apple-touch-icon" href="https://kaielvin.org/icon/152.png" sizes="152x152">
+    <link rel="apple-touch-icon" href="https://kaielvin.org/icon/180.png" sizes="180x180">
+    <link rel="manifest" href="https://kaielvin.org/manifest.json">
+    <title>`+title+` - Public</title>
+    <meta name="theme-color" content="#1f1f1f">
+    <style>
+body
+{
+  background-color:#1f1f1f;
+  color:#ffffffe9;
+  font-family: Geneva,Arial,Roboto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+
+  ::-webkit-scrollbar {
+    width: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background:  #ffffff22; 
+    border-radius: 2.5px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background:  #ffffff44; 
+    border-radius: 2.5px;
+  }
+
+}
+input, textarea
+{
+  background: #333;
+  border: #555 solid 1px;
+  padding: 0.1em;
+  color: #ccc;
+  width: 15em;
+}
+textarea
+{
+  width:90%;
+  max-width: 50em;
+  height:7em;
+}
+button
+{
+  background: #555;
+  border: #888 outset 2px;
+  color: white;
+  padding: 0.2em 0.9em;
+}
+a
+{
+  color:#ffffffe9;
+  /*text-decoration: none;*/
+  text-decoration-color: #666;
+}
+    </style>
+  </head>
+  <body>
+    `+html+`
+  </body>
+</html>`);
 });
 
 app.post('/createObject', (req, res) =>
