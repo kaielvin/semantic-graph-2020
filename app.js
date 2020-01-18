@@ -64,7 +64,7 @@ class Node
   {
     var claims = this.fromType_claims(type);
     // console.log("Node.fromType_to","claims",claims);
-    return claims.length > 0 ? claims[0][2] : undefined;
+    return claims.length > 0 ? _.last(claims)[2] : undefined;
   }
   fromType_tos(type)
   {
@@ -82,6 +82,16 @@ class Node
     tos = tos.map(to=>to && to.s ? to.s : undefined).filter(to=>to);
     return tos;
   }
+  fromType_toBool(type)
+  {
+    var to = this.fromType_to(type);
+    return to && to.b ? true : false;
+  }
+  fromType_tosBool(type)
+  {
+    var tos = this.fromType_tos(type);
+    return tos.map(to=>to && to.b ? true : false);
+  }
 
   toType_claims(type)
   {
@@ -95,7 +105,7 @@ class Node
   {
     var claims = this.toType_claims(type);
     // console.log("Node.fromType_to","claims",claims);
-    return claims.length > 0 ? claims[0][0] : undefined;
+    return claims.length > 0 ? _.last(claims)[0] : undefined;
   }
   toType_froms(type)
   {
@@ -170,6 +180,9 @@ class ClaimClass
     // if(_type instanceof Node) _type = _type.hex;
     // if(___to instanceof Node) ___to = ___to.hex;
 
+    if(_type.hex == _title.hex)
+      _titleIndex[___to.s] = _from;
+
     var toIsNode = ___to instanceof Node;
 
     var date = new Date();
@@ -219,6 +232,9 @@ Object.freeze(Claim);
 
 
 const _object =  makeByTitle("object");
+const _string =  makeByTitle("string");
+const _boolean =  makeByTitle("boolean");
+const _number =  makeByTitle("number");
 const _instanceOf =  makeByTitle("instanceOf");
 const _title =  makeByTitle("title");
 const _inCategory =  makeByTitle("inCategory");
@@ -281,9 +297,20 @@ createObject(
 });
 createObject(
 {
+  title:{s:"number"},
+  instanceOf:"primitive",
+  inCategory:"coreObjects",
+});
+createObject(
+{
   title:{s:"object"},
   instanceOf:"instanciable",
   inCategory:"coreObjects",
+  url: {s:String(node=>
+  {
+    var title = node.fromType_toStr(_title) || node.hex;
+    return 'http://localhost:3000/'+(!title || title.length > 25 ? node.hex : title);
+  })},
   htmlLink: {s:String(node=>
   {
     var title = node.fromType_toStr(_title) || node.hex;
@@ -305,19 +332,51 @@ createObject(
             {
               var accessor = ftT ? "fromType_tos" : "toType_froms";
               var values = node[accessor](type);
-              console.log("values",values);
-              var valuesHtml = values.length == 0
-                ? "<i>undefined</i>"
-                : values.map((value,v)=>
-                  Claim.isBoolean(value)
-                  ? (value.b ? "true" : "false")
-                  : Claim.isString(value)
-                  ? value.s.includes('\n')
-                    ? '<br/><textarea>'+_.escape(value.s)+'</textarea>'
-                    : (v>0?'<br/>':'')+'<input value="'+_.escape(value.s)+'"/>'
-                  : (v>0?', ':'')+value.executeJsMethod("htmlLink")
-                )
-                .join("");
+              var multipleValues = ftT ? type.fromType_toBool("multipleValues") : true;
+              var valueType = type.fromType_to(ftT ? "typeTo" : "typeFrom");
+              console.log("values",values,"valueType",valueType.fromType_toStr(_title),"multipleValues",multipleValues);
+
+              // var hasOneBlock = false;
+              var valueToHtml = (value,v)=>
+              {
+                // if(Claim.isBoolean(value))
+                if(valueType == _boolean)
+                  return value && value.b ? "true" : "false";
+
+                // if(Claim.isString(value) && value.s.includes('\n'))
+                if(valueType == _string && value && value.s.includes('\n'))
+                {
+                  // hasOneBlock = true;
+                  return '<br/><textarea>'+(value && value.s ? _.escape(value.s) : '')+'</textarea>';
+                }
+
+                // if(Claim.isString(value))
+                if(valueType == _string)
+                {
+                  // hasOneBlock = true;
+                  return (v>0?'<br/>':'')+'<form action="/makeClaim" method="post" class="oneliner">'
+                      +'<input type="hidden" name="valueType" value="string" />'
+                      +'<input type="hidden" name="_from" value="'+node.hex+'" />'
+                      +'<input type="hidden" name="_type" value="'+type.hex+'" />'
+                      +'<input name="___to" value="'+(value && value.s ? _.escape(value.s) : '')+'"/>'
+                      +'<button type="submit" class="small">save</button>'
+                    +'</form>';
+                }
+
+                return (v>0?', ':'')+ (value ? value.executeJsMethod("htmlLink") : '<span class="placeholderLabel">undefined</span>');
+              }
+
+              var valuesHtml = multipleValues
+                ? values.map(valueToHtml)
+                : valueToHtml(_.last(values));
+
+              if(multipleValues)
+              {
+                // valuesHtml = valuesHtml.join(hasOneBlock ? "<br/>" : ", ");
+                valuesHtml = valuesHtml.length > 0
+                  ? valuesHtml.join('')
+                  : '<span class="placeholderLabel">empty</span>';
+              }
 
               return '<li>'
                 +type.executeJsMethod("htmlLink")
@@ -354,6 +413,7 @@ createObject(
   ],
 
 });
+
 createObject(
 {
   title:{s:"instanceOf"},
@@ -374,6 +434,15 @@ createObject(
 createObject(
 {
   title:{s:"htmlLink"},
+  instanceOf:"claimType",
+  typeFrom:"instanciable",
+  typeTo:"string",
+  multipleValues:{b:true},
+  inCategory:"coreObjects",
+});
+createObject(
+{
+  title:{s:"url"},
   instanceOf:"claimType",
   typeFrom:"instanciable",
   typeTo:"string",
@@ -591,6 +660,10 @@ input, textarea
   color: #ccc;
   width: 15em;
 }
+.oneliner
+{
+  display: inline-block;
+}
 textarea
 {
   width:90%;
@@ -603,6 +676,11 @@ button
   border: #888 outset 2px;
   color: white;
   padding: 0.2em 0.9em;
+}
+.placeholderLabel
+{
+  color:#ffffff77;
+  font-style: italic;
 }
 a
 {
@@ -626,6 +704,18 @@ app.post('/createObject', (req, res) =>
   });
 
     res.redirect('/'+node.hex);
+});
+app.post('/makeClaim', (req, res) =>
+{
+  var _from = Node.make(req.body._from);
+  var _type = Node.make(req.body._type);
+  var ___to = req.body.___to;
+  if(req.body.valueType == "string")
+       ___to = {s:___to};
+  else ___to = Node.make(___to);
+  Claim.make(_from,_type,___to);
+  console.log("/makeClaim",_from,_type,___to);
+  res.redirect(_from.executeJsMethod("url"));
 });
 
 
